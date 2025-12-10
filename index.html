@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖誕樹互動裝置</title>
+    <title>聖誕樹互動裝置 - 已修復版本</title>
     
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
@@ -103,7 +103,8 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
     </style>
-</head>
+
+    </head>
 <body>
 
     <audio id="christmas-music" loop autoplay>
@@ -136,14 +137,14 @@
     </div>
 
     <script type="module">
-        // --- 修正後的模組載入 (使用完整的 CDN 網址) ---
+        // --- 關鍵修復：使用完整的 CDN 網址載入所有模組 ---
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
         import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
         import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
-        // 修正 MediaPipe 模組的完整網址，解決 404 錯誤
+        // 修正 MediaPipe 模組的完整網址 (解決 404 錯誤)
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/tasks-vision.esm.js';
 
         // --- CONFIGURATION ---
@@ -197,9 +198,11 @@
 
             // MediaPipe 初始化，這部分需要時間下載模型
             try {
+                // 這裡的 FilesetResolver 會使用正確的 CDN 網址
                 await initMediaPipe();
             } catch(e) {
                 console.error("MediaPipe initialization failed, continuing without hand tracking:", e);
+                // 即使失敗，也確保畫面能顯示
             }
             
             const loader = document.getElementById('loader');
@@ -532,7 +535,7 @@
             });
         }
 
-        // --- MEDIAPIPE (手勢互動) ---
+        // --- MEDIAPIPE ---
         async function initMediaPipe() {
             video = document.getElementById('webcam');
             webcamCanvas = document.getElementById('webcam-preview');
@@ -623,6 +626,7 @@
             requestAnimationFrame(animate);
             const dt = clock.getDelta();
 
+            // Rotation Logic
             if (STATE.mode === 'SCATTER' && STATE.hand.detected) {
                 const targetRotY = STATE.hand.x * Math.PI * 0.9; 
                 const targetRotX = STATE.hand.y * Math.PI * 0.25;
