@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖誕樹互動裝置 - 最終修復版</title>
-    
+    <title>Grand Luxury Tree Final v2</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
@@ -17,6 +16,7 @@
             align-items: center;
             padding-top: 40px;
             box-sizing: border-box;
+            /* Remove transition here as we don't hide the whole layer anymore */
         }
         
         /* When hidden class is applied to specific elements */
@@ -52,7 +52,7 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             font-family: 'Cinzel', 'Times New Roman', serif;
             opacity: 0.9;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.5s ease; /* Ensure smooth transitions if needed */
         }
 
         /* Upload Button - Restored & Elegant */
@@ -60,7 +60,7 @@
             margin-top: 20px;
             pointer-events: auto;
             text-align: center;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.5s ease; /* Add transition for smooth hiding */
         }
         .upload-btn {
             background: rgba(20, 20, 20, 0.6); 
@@ -95,7 +95,7 @@
             position: absolute; bottom: 40px; right: 40px;
             width: 120px; height: 90px;
             border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden; opacity: 0;
+            overflow: hidden; opacity: 0; /* Hidden by default but functional */
             pointer-events: none;
         }
     </style>
@@ -104,13 +104,17 @@
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
     </style>
 
-    </head>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+            }
+        }
+    </script>
+</head>
 <body>
-
-    <audio id="christmas-music" loop autoplay>
-        <source src="https://github.com/chi0602yin/christmas-tree/raw/refs/heads/main/christmas-list-official-lyric-video%20(mp3cut.net).mp3" type="audio/mpeg">
-        您的瀏覽器不支援音訊元素。
-    </audio>
 
     <div id="loader">
         <div class="spinner"></div>
@@ -131,21 +135,20 @@
         </div>
     </div>
 
+    <!-- Webcam hidden structure -->
     <div id="webcam-wrapper">
         <video id="webcam" autoplay playsinline style="display:none;"></video>
         <canvas id="webcam-preview"></canvas>
     </div>
 
     <script type="module">
-        // --- 最終修正：所有模組都使用完整的 CDN 網址 ---
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-        import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-        import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
-        // MediaPipe 模組的完整網址 (不會再被錯誤解析)
-        import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/tasks-vision.esm.js';
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
         // --- CONFIGURATION ---
         const CONFIG = {
@@ -192,16 +195,7 @@
             createDefaultPhotos();
             setupPostProcessing();
             setupEvents();
-            
-            // 處理音樂自動播放 (需在使用者互動後啟動)
-            handleMusicAutoplay(); 
-
-            // MediaPipe 初始化，這部分需要時間下載模型
-            try {
-                await initMediaPipe();
-            } catch(e) {
-                console.error("MediaPipe initialization failed, continuing without hand tracking:", e);
-            }
+            await initMediaPipe();
             
             const loader = document.getElementById('loader');
             loader.style.opacity = 0;
@@ -209,24 +203,6 @@
 
             animate();
         }
-        
-        function handleMusicAutoplay() {
-            const audio = document.getElementById('christmas-music');
-            if (audio) {
-                const startMusic = () => {
-                    audio.play().catch(e => console.error("Music play failed:", e));
-                    window.removeEventListener('click', startMusic);
-                    window.removeEventListener('touchstart', startMusic);
-                };
-                // 嘗試自動播放
-                audio.play().catch(() => {
-                    // 如果被瀏覽器阻止，則等待點擊
-                    window.addEventListener('click', startMusic);
-                    window.addEventListener('touchstart', startMusic);
-                });
-            }
-        }
-
 
         function initThree() {
             const container = document.getElementById('canvas-container');
@@ -316,6 +292,8 @@
                 this.posScatter = new THREE.Vector3();
                 this.baseScale = mesh.scale.x; 
 
+                // Individual Spin Speed
+                // Photos spin slower to be readable
                 const speedMult = (type === 'PHOTO') ? 0.3 : 2.0;
 
                 this.spinSpeed = new THREE.Vector3(
@@ -328,6 +306,7 @@
             }
 
             calculatePositions() {
+                // TREE: Tight Spiral
                 const h = CONFIG.particles.treeHeight;
                 const halfH = h / 2;
                 let t = Math.random(); 
@@ -339,6 +318,7 @@
                 const r = rMax * (0.8 + Math.random() * 0.4); 
                 this.posTree.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
 
+                // SCATTER: 3D Sphere
                 let rScatter = this.isDust ? (12 + Math.random()*20) : (8 + Math.random()*12);
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos(2 * Math.random() - 1);
@@ -363,14 +343,17 @@
                     }
                 }
 
+                // Movement Easing
                 const lerpSpeed = (mode === 'FOCUS' && this.mesh === focusTargetMesh) ? 5.0 : 2.0; 
                 this.mesh.position.lerp(target, lerpSpeed * dt);
 
+                // Rotation Logic - CRITICAL: Ensure spin happens in Scatter
                 if (mode === 'SCATTER') {
                     this.mesh.rotation.x += this.spinSpeed.x * dt;
                     this.mesh.rotation.y += this.spinSpeed.y * dt;
-                    this.mesh.rotation.z += this.spinSpeed.z * dt; 
+                    this.mesh.rotation.z += this.spinSpeed.z * dt; // Added Z for more natural tumble
                 } else if (mode === 'TREE') {
+                    // Reset rotations slowly
                     this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, 0, dt);
                     this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, 0, dt);
                     this.mesh.rotation.y += 0.5 * dt; 
@@ -380,11 +363,13 @@
                     this.mesh.lookAt(camera.position); 
                 }
 
+                // Scale Logic
                 let s = this.baseScale;
                 if (this.isDust) {
                     s = this.baseScale * (0.8 + 0.4 * Math.sin(clock.elapsedTime * 4 + this.mesh.id));
                     if (mode === 'TREE') s = 0; 
                 } else if (mode === 'SCATTER' && this.type === 'PHOTO') {
+                    // Large preview size in scatter
                     s = this.baseScale * 2.5; 
                 } else if (mode === 'FOCUS') {
                     if (this.mesh === focusTargetMesh) s = 4.5; 
@@ -533,7 +518,7 @@
             });
         }
 
-        // --- MEDIAPIPE (手勢互動) ---
+        // --- MEDIAPIPE ---
         async function initMediaPipe() {
             video = document.getElementById('webcam');
             webcamCanvas = document.getElementById('webcam-preview');
@@ -612,6 +597,7 @@
             });
             document.getElementById('file-input').addEventListener('change', handleImageUpload);
             
+            // Toggle UI logic - ONLY hide controls, keep title
             window.addEventListener('keydown', (e) => {
                 if (e.key.toLowerCase() === 'h') {
                     const controls = document.querySelector('.upload-wrapper');
@@ -624,6 +610,7 @@
             requestAnimationFrame(animate);
             const dt = clock.getDelta();
 
+            // Rotation Logic
             if (STATE.mode === 'SCATTER' && STATE.hand.detected) {
                 const targetRotY = STATE.hand.x * Math.PI * 0.9; 
                 const targetRotX = STATE.hand.y * Math.PI * 0.25;
