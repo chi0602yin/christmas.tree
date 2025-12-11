@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖誕樹互動裝置 - 穩定版 V5 (手勢互動)</title>
+    <title>聖誕樹互動裝置 - 絕對路徑穩定版 V6 (手勢互動)</title>
     
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         
-        /* UI Overlay */
+        /* UI Overlay - Minimalist */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; pointer-events: none;
@@ -18,6 +18,8 @@
             padding-top: 40px;
             box-sizing: border-box;
         }
+        
+        /* When hidden class is applied to specific elements */
         .ui-hidden { opacity: 0; pointer-events: none !important; }
 
         /* Loading */
@@ -38,7 +40,7 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Typography */
+        /* Typography - Centerpiece */
         h1 { 
             color: #fceea7; font-size: 56px; margin: 0; font-weight: 400; 
             letter-spacing: 6px; 
@@ -47,13 +49,15 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             font-family: 'Cinzel', 'Times New Roman', serif;
             opacity: 0.9;
+            transition: opacity 0.5s ease;
         }
 
-        /* Upload Button */
+        /* Upload Button - Restored & Elegant */
         .upload-wrapper {
             margin-top: 20px;
             pointer-events: auto;
             text-align: center;
+            transition: opacity 0.5s ease;
         }
         .upload-btn {
             background: rgba(20, 20, 20, 0.6); 
@@ -80,16 +84,16 @@
             letter-spacing: 1px;
             text-transform: uppercase;
         }
+
         #file-input { display: none; }
-        
-        /* 重新加入 Webcam 結構樣式 */
+
+        /* Webcam feedback */
         #webcam-wrapper {
             position: absolute; bottom: 40px; right: 40px;
             width: 120px; height: 90px;
             border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden; opacity: 0.5; /* 視覺提示 */
+            overflow: hidden; opacity: 0;
             pointer-events: none;
-            transition: opacity 0.5s;
         }
     </style>
     
@@ -129,17 +133,16 @@
     </div>
 
     <script type="module">
-        // --- 核心模組載入：使用完整的 CDN 網址，解決路徑問題 ---
+        // --- 修正後的模組載入：全部使用完整的 CDN 路徑 ---
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
         import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
         
-        // --- 重新加入 MediaPipe 模組載入 (使用 CDN 絕對路徑) ---
-        import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm';
-
-
+        // --- MediaPipe 模組載入：使用完整的 CDN 路徑 (修正 tasks-vision 404 錯誤) ---
+        import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js';
+        
         // --- CONFIGURATION ---
         const CONFIG = {
             colors: {
@@ -163,7 +166,6 @@
             mode: 'TREE', 
             focusIndex: -1, 
             focusTarget: null,
-            // 重新加入 Hand 狀態
             hand: { detected: false, x: 0, y: 0 },
             rotation: { x: 0, y: 0 } 
         };
@@ -173,15 +175,10 @@
         let clock = new THREE.Clock();
         let particleSystem = []; 
         let photoMeshGroup = new THREE.Group();
+        let handLandmarker, video, webcamCanvas, webcamCtx;
         let caneTexture; 
-        
-        // 重新加入 MediaPipe 變數
-        let handLandmarker, video, webcamCanvas, webcamCtx; 
 
-
-        // --- 核心初始化函式 (解耦載入，確保 Three.js 優先) ---
         async function init() {
-            // 1. 快速載入 3D 場景
             initThree();
             setupEnvironment(); 
             setupLights();
@@ -191,46 +188,23 @@
             createDefaultPhotos();
             setupPostProcessing();
             setupEvents();
-            handleMusicAutoplay(); 
-
-            // 2. 關鍵修正：立即隱藏載入畫面 (不等待任何東西)
+            
+            // 將 MediaPipe 載入改回非同步，避免卡住主線程
+            initMediaPipe().catch(e => {
+                console.error("MediaPipe failed to load in background:", e);
+                // 可以在此處彈出提示，告知手勢功能無法使用
+            });
+            
+            // 立即移除載入畫面 (不再等待任何模組)
             const loader = document.getElementById('loader');
             if(loader) {
                 loader.style.opacity = 0;
                 setTimeout(() => loader.remove(), 800);
             }
-            
-            // 3. 關鍵：在背景非同步載入 MediaPipe (移除 await)
-            // 即使載入失敗，聖誕樹也不會卡住
-            initMediaPipe().catch(e => {
-                console.error("MediaPipe failed to load in background:", e);
-                // 可以選擇在此處給出提示：手勢功能不可用
-            });
 
-            // 4. 開始動畫迴圈
             animate();
         }
 
-        // [其他初始化函式：handleMusicAutoplay, initThree, setupEnvironment, setupLights, setupPostProcessing, createTextures, handleImageUpload 保持不變]
-        
-        function handleMusicAutoplay() {
-            const audio = document.getElementById('christmas-music');
-            if (audio) {
-                const playPromise = audio.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(() => {
-                        const startMusic = () => {
-                            audio.play();
-                            window.removeEventListener('click', startMusic);
-                            window.removeEventListener('touchstart', startMusic);
-                        };
-                        window.addEventListener('click', startMusic);
-                        window.addEventListener('touchstart', startMusic); 
-                    });
-                }
-            }
-        }
-        
         function initThree() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
@@ -308,8 +282,7 @@
             caneTexture.wrapT = THREE.RepeatWrapping;
             caneTexture.repeat.set(3, 3);
         }
-        
-        // --- Particle Class (更新以處理三個模式：TREE, SCATTER, FOCUS) ---
+
         class Particle {
             constructor(mesh, type, isDust = false) {
                 this.mesh = mesh;
@@ -317,7 +290,7 @@
                 this.isDust = isDust;
                 
                 this.posTree = new THREE.Vector3();
-                this.posScatter = new THREE.Vector3(); // 重新加入 Scatter 位置
+                this.posScatter = new THREE.Vector3();
                 this.baseScale = mesh.scale.x; 
 
                 const speedMult = (type === 'PHOTO') ? 0.3 : 2.0;
@@ -332,7 +305,6 @@
             }
 
             calculatePositions() {
-                // TREE Position
                 const h = CONFIG.particles.treeHeight;
                 const halfH = h / 2;
                 let t = Math.random(); 
@@ -344,7 +316,6 @@
                 const r = rMax * (0.8 + Math.random() * 0.4); 
                 this.posTree.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
 
-                // SCATTER Position
                 let rScatter = this.isDust ? (12 + Math.random()*20) : (8 + Math.random()*12);
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos(2 * Math.random() - 1);
@@ -372,7 +343,6 @@
                 const lerpSpeed = (mode === 'FOCUS' && this.mesh === focusTargetMesh) ? 5.0 : 2.0; 
                 this.mesh.position.lerp(target, lerpSpeed * dt);
 
-                // 旋轉邏輯
                 if (mode === 'SCATTER') {
                     this.mesh.rotation.x += this.spinSpeed.x * dt;
                     this.mesh.rotation.y += this.spinSpeed.y * dt;
@@ -387,7 +357,6 @@
                     this.mesh.lookAt(camera.position); 
                 }
 
-                // 縮放邏輯
                 let s = this.baseScale;
                 if (this.isDust) {
                     s = this.baseScale * (0.8 + 0.4 * Math.sin(clock.elapsedTime * 4 + this.mesh.id));
@@ -402,8 +371,10 @@
                 this.mesh.scale.lerp(new THREE.Vector3(s,s,s), 4*dt);
             }
         }
-        
-        // [createParticles, createDust, createDefaultPhotos, addPhotoToScene, handleImageUpload 保持不變]
+
+        // --- CREATION 函式 (略) ---
+        // ... (createParticles, createDust, createDefaultPhotos, addPhotoToScene, handleImageUpload 保持不變)
+
         function createParticles() {
             const sphereGeo = new THREE.SphereGeometry(0.5, 32, 32); 
             const boxGeo = new THREE.BoxGeometry(0.55, 0.55, 0.55); 
@@ -520,17 +491,19 @@
                 reader.readAsDataURL(f);
             });
         }
-        
-        // --- 重新加入 MEDIAPIPE 函式 ---
+
+        // --- MEDIAPIPE ---
         async function initMediaPipe() {
             video = document.getElementById('webcam');
             webcamCanvas = document.getElementById('webcam-preview');
             webcamCtx = webcamCanvas.getContext('2d');
             webcamCanvas.width = 160; webcamCanvas.height = 120;
-
+            
+            // FilesetResolver.forVisionTasks 必須指定到正確的 WASM 目錄
             const vision = await FilesetResolver.forVisionTasks(
                 "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
             );
+            
             handLandmarker = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
                     modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
@@ -559,50 +532,38 @@
             requestAnimationFrame(predictWebcam);
         }
 
-        // 重新加入手勢判斷邏輯
         function processGestures(result) {
             if (result.landmarks && result.landmarks.length > 0) {
                 STATE.hand.detected = true;
                 const lm = result.landmarks[0];
-                // 使用中指關節 (lm[9]) 作為中心點計算位移
                 STATE.hand.x = (lm[9].x - 0.5) * 2; 
                 STATE.hand.y = (lm[9].y - 0.5) * 2;
 
                 const thumb = lm[4]; const index = lm[8]; const wrist = lm[0];
-                
-                // 捏合距離 (Thumb tip 4 - Index tip 8)
                 const pinchDist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
-                
-                // 展開距離 (四指尖到手腕的平均距離)
                 const tips = [lm[8], lm[12], lm[16], lm[20]];
                 let avgDist = 0;
                 tips.forEach(t => avgDist += Math.hypot(t.x - wrist.x, t.y - wrist.y));
                 avgDist /= 4;
 
-                // 判斷模式
-                if (pinchDist < 0.05) { // 非常小的距離：捏合，進入 FOCUS 模式
+                if (pinchDist < 0.05) {
                     if (STATE.mode !== 'FOCUS') {
                         STATE.mode = 'FOCUS';
                         const photos = particleSystem.filter(p => p.type === 'PHOTO');
                         if (photos.length) STATE.focusTarget = photos[Math.floor(Math.random()*photos.length)].mesh;
                     }
-                } else if (avgDist < 0.25) { // 輕微張開：接近拳頭，進入 TREE 模式
+                } else if (avgDist < 0.25) {
                     STATE.mode = 'TREE';
                     STATE.focusTarget = null;
-                } else if (avgDist > 0.4) { // 完全張開：進入 SCATTER 模式
+                } else if (avgDist > 0.4) {
                     STATE.mode = 'SCATTER';
                     STATE.focusTarget = null;
                 }
             } else {
                 STATE.hand.detected = false;
-                // 如果手勢消失，恢復 TREE 模式
-                if (STATE.mode !== 'TREE') {
-                    STATE.mode = 'TREE';
-                    STATE.focusTarget = null;
-                }
             }
         }
-        
+
         function setupEvents() {
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
@@ -624,19 +585,17 @@
             requestAnimationFrame(animate);
             const dt = clock.getDelta();
 
-            // 旋轉邏輯：根據模式和手勢輸入調整
+            // Rotation Logic
             if (STATE.mode === 'SCATTER' && STATE.hand.detected) {
-                // SCATTER 模式下，手勢控制旋轉
                 const targetRotY = STATE.hand.x * Math.PI * 0.9; 
                 const targetRotX = STATE.hand.y * Math.PI * 0.25;
                 STATE.rotation.y += (targetRotY - STATE.rotation.y) * 3.0 * dt;
                 STATE.rotation.x += (targetRotX - STATE.rotation.x) * 3.0 * dt;
             } else {
-                // TREE 或 FOCUS 模式下，自動緩慢旋轉
                 if(STATE.mode === 'TREE') {
                     STATE.rotation.y += 0.3 * dt;
                     STATE.rotation.x += (0 - STATE.rotation.x) * 2.0 * dt;
-                } else { // FOCUS 模式慢速旋轉
+                } else {
                      STATE.rotation.y += 0.1 * dt; 
                 }
             }
