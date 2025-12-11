@@ -90,7 +90,8 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
     </style>
-</head>
+    
+    </head>
 <body>
     
     <audio id="christmas-music" loop autoplay>
@@ -123,7 +124,7 @@
     </div>
 
     <script type="module">
-        // 🚨 修正：移除 importmap，直接使用完整的 CDN 網址
+        // 🚨 修正：直接使用完整的 CDN 網址載入 Three.js 模組
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
         import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
@@ -196,6 +197,7 @@
             // 即使模型載入很慢或失敗，聖誕樹畫面也會先顯示
             initMediaPipe().catch(e => {
                 console.error("MediaPipe failed to load in background:", e);
+                // 即使失敗也不會卡住主畫面
             });
 
             animate();
@@ -515,10 +517,12 @@
             webcamCanvas.width = 160; webcamCanvas.height = 120;
 
             const vision = await FilesetResolver.forVisionTasks(
-                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                // 🚨 這裡必須使用 CDN 路徑，確保能載入 WASM 檔案
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm" 
             );
             handLandmarker = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
+                    // 🚨 這裡必須使用 Google 儲存空間的路徑，確保能載入模型檔案
                     modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
                     delegate: "GPU"
                 },
