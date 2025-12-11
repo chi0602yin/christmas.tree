@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖誕樹互動裝置 - 最終穩定版 v3 (修復)</title>
+    <title>聖誕樹互動裝置 - 最終穩定版 v4 (最終修復)</title>
     
     <style>
+        /* [大量 CSS 碼保持不變以節省篇幅] */
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         #ui-layer {
@@ -132,7 +133,7 @@
         import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
         
-        // 🚨 修正 3：MediaPipe 模組也使用完整的 CDN 網址
+        // 🚨 修正 3：MediaPipe 模組也使用完整的 CDN 網址 (修正了 404 錯誤)
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm';
 
 
@@ -174,7 +175,7 @@
 
         // --- 核心初始化函式 (修正阻塞邏輯) ---
         async function init() {
-            // 1. 快速載入 3D 場景
+            // 1. 立即啟動 3D 場景
             initThree();
             setupEnvironment(); 
             setupLights();
@@ -194,6 +195,7 @@
             }
             
             // 3. 🚨 關鍵修正：在背景非同步載入 MediaPipe (移除 await)
+            // 即使 MediaPipe 載入失敗，聖誕樹也會正常顯示
             initMediaPipe().catch(e => {
                 console.error("MediaPipe failed to load in background:", e);
             });
