@@ -61,8 +61,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
     </style>
-    
-    </head>
+</head>
 <body>
 
     <audio id="christmas-music" loop autoplay>
@@ -79,7 +78,7 @@
 
     <div id="ui-layer">
         <h1>Merry Christmas</h1>
-        </div>
+    </div>
 
     <div id="webcam-wrapper">
         <video id="webcam" autoplay playsinline style="display:none;"></video>
@@ -87,7 +86,7 @@
     </div>
 
     <script type="module">
-        // --- 關鍵修改：使用完整的 CDN 網址，解決 404 錯誤 ---
+        // 確保使用完整的 CDN 網址
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
         import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
@@ -95,22 +94,16 @@
         import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
         
-        // 使用 +esm 結尾的直接連結，這是解決 MediaPipe 載入失敗最有效的方法
+        // 修正 MediaPipe 載入問題的 CDN 連結
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm';
 
         // --- 設定 ---
         const CONFIG = {
             colors: {
-                bg: 0x000000, 
-                champagneGold: 0xffd966, 
-                deepGreen: 0x03180a,     
-                accentRed: 0x990000,     
+                bg: 0x000000, champagneGold: 0xffd966, deepGreen: 0x03180a, accentRed: 0x990000,     
             },
             particles: {
-                count: 1500,     
-                dustCount: 2500, 
-                treeHeight: 24,  
-                treeRadius: 8    
+                count: 1500, dustCount: 2500, treeHeight: 24, treeRadius: 8    
             },
             camera: {
                 z: 50 
@@ -118,9 +111,7 @@
         };
 
         const STATE = {
-            mode: 'TREE', 
-            focusIndex: -1, 
-            focusTarget: null,
+            mode: 'TREE', focusIndex: -1, focusTarget: null,
             hand: { detected: false, x: 0, y: 0 },
             rotation: { x: 0, y: 0 } 
         };
@@ -133,38 +124,33 @@
         let handLandmarker, video, webcamCanvas, webcamCtx;
         let caneTexture; 
 
+        // --- 核心初始化函式 (調整載入順序) ---
         async function init() {
+            // 快速載入 3D 場景
             initThree();
             setupEnvironment(); 
             setupLights();
             createTextures();
             createParticles(); 
             createDust();     
-            
-            // 建立 5 張預設照片
             createDefaultPhotos(); 
-            
             setupPostProcessing();
             setupEvents();
-            
-            // 音樂處理
             handleMusicAutoplay(); 
 
-            // 手勢模型載入
-            try {
-                await initMediaPipe();
-            } catch(e) {
-                console.error("MediaPipe initialization failed:", e);
-                // 即使失敗也讓 Loading 消失，至少能看到樹
-                const loader = document.getElementById('loader');
-                if(loader) loader.remove();
-            }
-            
+            // **關鍵修改點 1：先隱藏載入畫面**
+            // 確保樹和照片渲染完成後，Loading 畫面就消失
             const loader = document.getElementById('loader');
             if(loader) {
                 loader.style.opacity = 0;
                 setTimeout(() => loader.remove(), 800);
             }
+            
+            // **關鍵修改點 2：非同步載入 MediaPipe (不使用 await 阻擋)**
+            // 即使模型載入很慢或失敗，聖誕樹畫面也會先顯示
+            initMediaPipe().catch(e => {
+                console.error("MediaPipe failed to load in background:", e);
+            });
 
             animate();
         }
@@ -363,17 +349,14 @@
             const candyGeo = new THREE.TubeGeometry(curve, 16, 0.08, 8, false);
 
             const goldMat = new THREE.MeshStandardMaterial({
-                color: CONFIG.colors.champagneGold,
-                metalness: 1.0, roughness: 0.1,
+                color: CONFIG.colors.champagneGold, metalness: 1.0, roughness: 0.1,
                 envMapIntensity: 2.0, emissive: 0x443300, emissiveIntensity: 0.3
             });
             const greenMat = new THREE.MeshStandardMaterial({
-                color: CONFIG.colors.deepGreen,
-                metalness: 0.2, roughness: 0.8, emissive: 0x002200, emissiveIntensity: 0.2 
+                color: CONFIG.colors.deepGreen, metalness: 0.2, roughness: 0.8, emissive: 0x002200, emissiveIntensity: 0.2 
             });
             const redMat = new THREE.MeshPhysicalMaterial({
-                color: CONFIG.colors.accentRed,
-                metalness: 0.3, roughness: 0.2, clearcoat: 1.0, emissive: 0x330000
+                color: CONFIG.colors.accentRed, metalness: 0.3, roughness: 0.2, clearcoat: 1.0, emissive: 0x330000
             });
             const candyMat = new THREE.MeshStandardMaterial({ map: caneTexture, roughness: 0.4 });
 
@@ -420,13 +403,12 @@
 
         // --- 創建 5 張預設照片 ---
         function createDefaultPhotos() {
-            // 這裡放了 5 張不同的聖誕主題圖片
             const imageUrls = [
-                'https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=800&q=80', // 聖誕樹
-                'https://images.unsplash.com/photo-1543589077-47d81606c1bf?auto=format&fit=crop&w=800&q=80', // 裝飾球
-                'https://images.unsplash.com/photo-1482638213495-555830206c09?auto=format&fit=crop&w=800&q=80', // 雪地
-                'https://images.unsplash.com/photo-1576919228636-24605434203c?auto=format&fit=crop&w=800&q=80', // 禮物
-                'https://images.unsplash.com/photo-1511191486285-55d590f2a5a7?auto=format&fit=crop&w=800&q=80'  // 壁爐
+                'https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1543589077-47d81606c1bf?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1482638213495-555830206c09?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1576919228636-24605434203c?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1511191486285-55d590f2a5a7?auto=format&fit=crop&w=800&q=80'
             ];
 
             const loader = new THREE.TextureLoader();
