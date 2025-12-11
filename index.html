@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖誕樹互動裝置 - 最終穩定版 v3</title>
+    <title>聖誕樹互動裝置 - 最終穩定版 v3 (修復)</title>
     
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
@@ -124,7 +124,7 @@
     </div>
 
     <script type="module">
-        // 🚨 解決錯誤一：直接使用完整的 CDN 網址載入 Three.js 模組
+        // 🚨 修正 2：使用完整的 CDN 網址載入 Three.js 及其所有附加元件
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
         import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
@@ -132,11 +132,11 @@
         import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
         
-        // 🚨 解決錯誤一：MediaPipe 模組也使用完整的 CDN 網址
+        // 🚨 修正 3：MediaPipe 模組也使用完整的 CDN 網址
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm';
 
 
-        // --- CONFIGURATION --- (略)
+        // --- CONFIGURATION ---
         const CONFIG = {
             colors: {
                 bg: 0x000000, 
@@ -172,7 +172,7 @@
         let caneTexture; 
 
 
-        // --- 核心初始化函式 (修正載入順序) ---
+        // --- 核心初始化函式 (修正阻塞邏輯) ---
         async function init() {
             // 1. 快速載入 3D 場景
             initThree();
@@ -194,10 +194,8 @@
             }
             
             // 3. 🚨 關鍵修正：在背景非同步載入 MediaPipe (移除 await)
-            // 即使載入失敗，聖誕樹畫面也會運行
             initMediaPipe().catch(e => {
                 console.error("MediaPipe failed to load in background:", e);
-                // 由於 MediaPipe 載入失敗（404），會報錯，但不會卡住畫面。
             });
 
             // 4. 開始動畫迴圈 (讓聖誕樹立即轉動)
@@ -215,16 +213,13 @@
                             window.removeEventListener('click', startMusic);
                             window.removeEventListener('touchstart', startMusic);
                         };
-                        // 讓使用者點擊畫面後播放音樂
                         window.addEventListener('click', startMusic);
                         window.addEventListener('touchstart', startMusic); 
                     });
                 }
             }
         }
-
-        // --- (其餘函式保持不變) ---
-
+        
         function initThree() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
