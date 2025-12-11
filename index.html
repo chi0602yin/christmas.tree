@@ -174,7 +174,7 @@
 
         // --- 核心初始化函式 (修正載入順序) ---
         async function init() {
-            // 1. 快速載入 Three.js 場景
+            // 1. 快速載入 3D 場景
             initThree();
             setupEnvironment(); 
             setupLights();
@@ -186,17 +186,17 @@
             setupEvents();
             handleMusicAutoplay(); 
 
-            // 2. 🚨 關鍵修正：立刻隱藏載入畫面，不等待 MediaPipe
+            // 2. 🚨 關鍵修正：立即隱藏載入畫面 (不等待任何東西)
             const loader = document.getElementById('loader');
             if(loader) {
                 loader.style.opacity = 0;
                 setTimeout(() => loader.remove(), 800);
             }
             
-            // 3. 🚨 關鍵修正：在背景非同步載入 MediaPipe (移除 await，不阻擋主執行緒)
-            // 即使 MediaPipe 載入失敗，聖誕樹畫面也會正常顯示。
+            // 3. 🚨 關鍵修正：在背景非同步載入 MediaPipe (移除 await)
             initMediaPipe().catch(e => {
                 console.error("MediaPipe failed to load in background:", e);
+                // 即使失敗，聖誕樹畫面也會繼續運行。
             });
 
             // 4. 開始動畫迴圈 (讓聖誕樹立即轉動)
