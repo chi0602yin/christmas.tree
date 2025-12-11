@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖誕樹互動裝置 - 最終修復版</title>
+    <title>聖誕樹互動裝置 - 最終穩定版</title>
     
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
-        
-        /* UI 層：只保留標題 */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; pointer-events: none;
@@ -18,8 +16,10 @@
             padding-top: 40px;
             box-sizing: border-box;
         }
-
-        /* 載入畫面 */
+        .ui-hidden {
+            opacity: 0;
+            pointer-events: none !important;
+        }
         #loader {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 100;
@@ -36,8 +36,6 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* 標題樣式 */
         h1 { 
             color: #fceea7; font-size: 56px; margin: 0; font-weight: 400; 
             letter-spacing: 6px; 
@@ -46,9 +44,40 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             font-family: 'Cinzel', 'Times New Roman', serif;
             opacity: 0.9;
+            transition: opacity 0.5s ease;
         }
-
-        /* 隱藏的攝影機元素 */
+        .upload-wrapper {
+            margin-top: 20px;
+            pointer-events: auto;
+            text-align: center;
+            transition: opacity 0.5s ease;
+        }
+        .upload-btn {
+            background: rgba(20, 20, 20, 0.6); 
+            border: 1px solid rgba(212, 175, 55, 0.4); 
+            color: #d4af37; 
+            padding: 10px 25px; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            letter-spacing: 3px; 
+            font-size: 10px;
+            transition: all 0.4s;
+            display: inline-block;
+            backdrop-filter: blur(5px);
+        }
+        .upload-btn:hover { 
+            background: #d4af37; 
+            color: #000; 
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+        }
+        .hint-text {
+            color: rgba(212, 175, 55, 0.5);
+            font-size: 9px;
+            margin-top: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        #file-input { display: none; }
         #webcam-wrapper {
             position: absolute; bottom: 40px; right: 40px;
             width: 120px; height: 90px;
@@ -63,9 +92,9 @@
     </style>
 </head>
 <body>
-
+    
     <audio id="christmas-music" loop autoplay>
-        <source src="https://github.com/chi0602yin/christmas-tree/raw/refs/heads/main/christmas-list-official-lyric-video%20(mp3cut.net).mp3" type="audio/mpeg">
+        <source src="./christmas-list-official-lyric-video%20(mp3cut.net).mp3" type="audio/mpeg"> 
         您的瀏覽器不支援音訊元素。
     </audio>
 
@@ -78,6 +107,14 @@
 
     <div id="ui-layer">
         <h1>Merry Christmas</h1>
+        
+        <div class="upload-wrapper">
+            <label class="upload-btn">
+                Add Memories
+                <input type="file" id="file-input" multiple accept="image/*">
+            </label>
+            <div class="hint-text">Press 'H' to Hide Controls</div>
+        </div>
     </div>
 
     <div id="webcam-wrapper">
@@ -86,7 +123,7 @@
     </div>
 
     <script type="module">
-        // 確保使用完整的 CDN 網址
+        // 🚨 修正：移除 importmap，直接使用完整的 CDN 網址
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
         import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
@@ -94,16 +131,23 @@
         import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/environments/RoomEnvironment.js'; 
         
-        // 修正 MediaPipe 載入問題的 CDN 連結
+        // 🚨 修正：MediaPipe 模組也使用完整的 CDN 網址
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm';
 
-        // --- 設定 ---
+
+        // --- CONFIGURATION --- (保持不變)
         const CONFIG = {
             colors: {
-                bg: 0x000000, champagneGold: 0xffd966, deepGreen: 0x03180a, accentRed: 0x990000,     
+                bg: 0x000000, 
+                champagneGold: 0xffd966, 
+                deepGreen: 0x03180a,     
+                accentRed: 0x990000,     
             },
             particles: {
-                count: 1500, dustCount: 2500, treeHeight: 24, treeRadius: 8    
+                count: 1500,     
+                dustCount: 2500, 
+                treeHeight: 24,  
+                treeRadius: 8    
             },
             camera: {
                 z: 50 
@@ -111,7 +155,9 @@
         };
 
         const STATE = {
-            mode: 'TREE', focusIndex: -1, focusTarget: null,
+            mode: 'TREE', 
+            focusIndex: -1, 
+            focusTarget: null,
             hand: { detected: false, x: 0, y: 0 },
             rotation: { x: 0, y: 0 } 
         };
@@ -124,7 +170,8 @@
         let handLandmarker, video, webcamCanvas, webcamCtx;
         let caneTexture; 
 
-        // --- 核心初始化函式 (調整載入順序) ---
+
+        // --- 核心初始化函式 (修正載入順序) ---
         async function init() {
             // 快速載入 3D 場景
             initThree();
@@ -133,20 +180,19 @@
             createTextures();
             createParticles(); 
             createDust();     
-            createDefaultPhotos(); 
+            createDefaultPhotos();
             setupPostProcessing();
             setupEvents();
-            handleMusicAutoplay(); 
+            handleMusicAutoplay(); // 處理音樂自動播放
 
-            // **關鍵修改點 1：先隱藏載入畫面**
-            // 確保樹和照片渲染完成後，Loading 畫面就消失
+            // 1. 隱藏載入畫面 (在所有 3D 資源載入完成後立即隱藏)
             const loader = document.getElementById('loader');
             if(loader) {
                 loader.style.opacity = 0;
                 setTimeout(() => loader.remove(), 800);
             }
             
-            // **關鍵修改點 2：非同步載入 MediaPipe (不使用 await 阻擋)**
+            // 2. 在背景非同步載入 MediaPipe (不使用 await 阻擋主執行緒)
             // 即使模型載入很慢或失敗，聖誕樹畫面也會先顯示
             initMediaPipe().catch(e => {
                 console.error("MediaPipe failed to load in background:", e);
@@ -154,7 +200,7 @@
 
             animate();
         }
-        
+
         function handleMusicAutoplay() {
             const audio = document.getElementById('christmas-music');
             if (audio) {
@@ -166,12 +212,16 @@
                             window.removeEventListener('click', startMusic);
                             window.removeEventListener('touchstart', startMusic);
                         };
+                        // 讓使用者點擊畫面後播放音樂
                         window.addEventListener('click', startMusic);
                         window.addEventListener('touchstart', startMusic); 
                     });
                 }
             }
         }
+
+
+        // --- (其餘函式保持不變) ---
 
         function initThree() {
             const container = document.getElementById('canvas-container');
@@ -256,6 +306,7 @@
                 this.mesh = mesh;
                 this.type = type;
                 this.isDust = isDust;
+                
                 this.posTree = new THREE.Vector3();
                 this.posScatter = new THREE.Vector3();
                 this.baseScale = mesh.scale.x; 
@@ -352,12 +403,15 @@
                 color: CONFIG.colors.champagneGold, metalness: 1.0, roughness: 0.1,
                 envMapIntensity: 2.0, emissive: 0x443300, emissiveIntensity: 0.3
             });
+
             const greenMat = new THREE.MeshStandardMaterial({
                 color: CONFIG.colors.deepGreen, metalness: 0.2, roughness: 0.8, emissive: 0x002200, emissiveIntensity: 0.2 
             });
+
             const redMat = new THREE.MeshPhysicalMaterial({
                 color: CONFIG.colors.accentRed, metalness: 0.3, roughness: 0.2, clearcoat: 1.0, emissive: 0x330000
             });
+            
             const candyMat = new THREE.MeshStandardMaterial({ map: caneTexture, roughness: 0.4 });
 
             for (let i = 0; i < CONFIG.particles.count; i++) {
@@ -401,26 +455,20 @@
             }
         }
 
-        // --- 創建 5 張預設照片 ---
         function createDefaultPhotos() {
-            const imageUrls = [
-                'https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=800&q=80',
-                'https://images.unsplash.com/photo-1543589077-47d81606c1bf?auto=format&fit=crop&w=800&q=80',
-                'https://images.unsplash.com/photo-1482638213495-555830206c09?auto=format&fit=crop&w=800&q=80',
-                'https://images.unsplash.com/photo-1576919228636-24605434203c?auto=format&fit=crop&w=800&q=80',
-                'https://images.unsplash.com/photo-1511191486285-55d590f2a5a7?auto=format&fit=crop&w=800&q=80'
-            ];
-
-            const loader = new THREE.TextureLoader();
-
-            imageUrls.forEach(url => {
-                loader.load(url, (texture) => {
-                    texture.colorSpace = THREE.SRGBColorSpace;
-                    addPhotoToScene(texture);
-                }, undefined, (error) => {
-                    console.error(`Error loading image from ${url}:`, error);
-                });
-            });
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#050505'; ctx.fillRect(0,0,512,512);
+            ctx.strokeStyle = '#eebb66'; ctx.lineWidth = 15; ctx.strokeRect(20,20,472,472);
+            ctx.font = '500 60px Times New Roman'; ctx.fillStyle = '#eebb66';
+            ctx.textAlign = 'center'; 
+            ctx.fillText("JOYEUX", 256, 230);
+            ctx.fillText("NOEL", 256, 300);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            addPhotoToScene(tex);
         }
 
         function addPhotoToScene(texture) {
@@ -443,7 +491,23 @@
             photoMeshGroup.add(group);
             particleSystem.push(new Particle(group, 'PHOTO', false));
         }
+        
+        function handleImageUpload(e) {
+            const files = e.target.files;
+            if(!files.length) return;
+            Array.from(files).forEach(f => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    new THREE.TextureLoader().load(ev.target.result, (t) => {
+                        t.colorSpace = THREE.SRGBColorSpace;
+                        addPhotoToScene(t);
+                    });
+                }
+                reader.readAsDataURL(f);
+            });
+        }
 
+        // --- MEDIAPIPE ---
         async function initMediaPipe() {
             video = document.getElementById('webcam');
             webcamCanvas = document.getElementById('webcam-preview');
@@ -520,12 +584,21 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 composer.setSize(window.innerWidth, window.innerHeight);
             });
+            document.getElementById('file-input').addEventListener('change', handleImageUpload);
+            
+            window.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'h') {
+                    const controls = document.querySelector('.upload-wrapper');
+                    if (controls) controls.classList.toggle('ui-hidden');
+                }
+            });
         }
 
         function animate() {
             requestAnimationFrame(animate);
             const dt = clock.getDelta();
 
+            // Rotation Logic
             if (STATE.mode === 'SCATTER' && STATE.hand.detected) {
                 const targetRotY = STATE.hand.x * Math.PI * 0.9; 
                 const targetRotX = STATE.hand.y * Math.PI * 0.25;
